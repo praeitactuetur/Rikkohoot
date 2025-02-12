@@ -1,126 +1,88 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ricohoot</title>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <h1>¡Bienvenido a Ricohoot!</h1>
-    
-    <div id="lobby">
-        <p>Ingresa tu nombre para unirte:</p>
-        <input type="text" id="playerName" placeholder="Tu nombre">
-        <button onclick="joinGame()">Unirse</button>
-        <h2>Jugadores en la sala:</h2>
-        <ul id="playersList"></ul>
-        <button onclick="startGame()">Iniciar Juego</button>
-    </div>
+// Importaciones necesarias
+import { useState, useEffect } from "react";
+import { db } from "./firebase"; // Asegúrate de tener Firebase configurado
+import { collection, doc, setDoc, getDoc, onSnapshot, updateDoc, query, orderBy } from "firebase/firestore";
 
-    <div id="game" style="display:none;">
-        <h2 id="questionText">Esperando pregunta...</h2>
-        <div id="answers"></div>
-        <p id="timer"></p>
-    </div>
+export default function KahootClone() {
+    const [players, setPlayers] = useState([]);
+    const [questions, setQuestions] = useState([]);
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const [selectedAnswer, setSelectedAnswer] = useState(null);
+    const [timer, setTimer] = useState(30);
+    const [gameOver, setGameOver] = useState(false);
 
-    <script>
-        // Configuración de Firebase
-        const firebaseConfig = {
-            apiKey: "API_KEY",
-            authDomain: "ricohoot-16f32.firebaseapp.com",
-            databaseURL: "https://ricohoot-16f32-default-rtdb.firebaseio.com/",
-            projectId: "ricohoot-16f32",
-            storageBucket: "ricohoot-16f32.appspot.com",
-            messagingSenderId: "1037710167290",
-            appId: "1:1037710167290:web:593d30795e54440ec94d43"
+    useEffect(() => {
+        // Escuchar cambios en la base de datos para jugadores
+        const unsubscribePlayers = onSnapshot(collection(db, "players"), (snapshot) => {
+            setPlayers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+        
+        // Cargar preguntas
+        const loadQuestions = async () => {
+            const docRef = doc(db, "game", "questions");
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setQuestions(docSnap.data().list);
+            }
         };
         
-        // Inicializar Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        loadQuestions();
+        return () => unsubscribePlayers();
+    }, []);
 
-        function joinGame() {
-            let name = document.getElementById("playerName").value;
-            if (name.trim() === "") return;
-
-            let playerRef = db.ref("players").push();
-            playerRef.set({ name: name, score: 0 });
-
-            document.getElementById("playerName").value = "";
+    useEffect(() => {
+        if (timer > 0) {
+            const interval = setInterval(() => setTimer(t => t - 1), 1000);
+            return () => clearInterval(interval);
+        } else {
+            handleNextQuestion();
         }
+    }, [timer]);
 
-        db.ref("players").on("value", (snapshot) => {
-            let playersList = document.getElementById("playersList");
-            playersList.innerHTML = "";
-            snapshot.forEach((child) => {
-                let li = document.createElement("li");
-                li.textContent = `${child.val().name} - ${child.val().score} pts`;
-                playersList.appendChild(li);
-            });
-        });
-
-        function startGame() {
-            console.log("Iniciando juego...");
-            db.ref("game/question").set({
-                text: "¿Cuál es la capital de Francia?",
-                options: ["Madrid", "Londres", "París", "Berlín"],
-                correct: 2,
-                timer: 10
-            });
-            document.getElementById("lobby").style.display = "none";
-            document.getElementById("game").style.display = "block";
-        }
-
-        db.ref("game/question").on("value", (snapshot) => {
-            let data = snapshot.val();
-            if (!data) return;
-
-            document.getElementById("questionText").innerText = data.text;
-            let answersDiv = document.getElementById("answers");
-            answersDiv.innerHTML = "";
-
-            data.options.forEach((option, index) => {
-                let button = document.createElement("button");
-                button.innerText = option;
-                button.onclick = () => submitAnswer(index, data.correct);
-                answersDiv.appendChild(button);
-            });
-
-            startTimer(data.timer);
-        });
-
-        function submitAnswer(selected, correct) {
-            let playerName = document.getElementById("playerName").value;
-            if (selected === correct) {
-                alert("¡Correcto!");
-                updateScore(playerName);
-            } else {
-                alert("Incorrecto");
-            }
-        }
-
-        function updateScore(playerName) {
-            db.ref("players").orderByChild("name").equalTo(playerName).once("value", (snapshot) => {
-                snapshot.forEach((child) => {
-                    let score = (child.val().score || 0) + 10;
-                    db.ref("players/" + child.key).update({ score: score });
-                });
+    const handleAnswer = async (answer) => {
+        if (selectedAnswer) return; // Evitar respuestas múltiples
+        setSelectedAnswer(answer);
+        
+        const correct = answer === questions[currentQuestionIndex].correct;
+        if (correct) {
+            await updateDoc(doc(db, "players", "playerId"), {
+                score: (players.find(p => p.id === "playerId")?.score || 0) + timer * 10 // Más puntos si responde rápido
             });
         }
+    };
 
-        function startTimer(seconds) {
-            let timerElem = document.getElementById("timer");
-            let timeLeft = seconds;
-            timerElem.innerText = `Tiempo restante: ${timeLeft}s`;
-            let interval = setInterval(() => {
-                timeLeft--;
-                timerElem.innerText = `Tiempo restante: ${timeLeft}s`;
-                if (timeLeft <= 0) clearInterval(interval);
-            }, 1000);
+    const handleNextQuestion = () => {
+        if (currentQuestionIndex < questions.length - 1) {
+            setCurrentQuestionIndex(i => i + 1);
+            setTimer(30);
+            setSelectedAnswer(null);
+        } else {
+            setGameOver(true);
         }
-    </script>
-</body>
-</html>
+    };
+
+    return (
+        <div className="game-container">
+            {gameOver ? (
+                <div>
+                    <h2>Juego Terminado</h2>
+                    <ul>
+                        {players.sort((a, b) => b.score - a.score).map(player => (
+                            <li key={player.id}>{player.name}: {player.score} puntos</li>
+                        ))}
+                    </ul>
+                </div>
+            ) : (
+                <div>
+                    <h2>{questions[currentQuestionIndex]?.question}</h2>
+                    <p>Tiempo restante: {timer}</p>
+                    {questions[currentQuestionIndex]?.answers.map((answer, index) => (
+                        <button key={index} onClick={() => handleAnswer(answer)}>
+                            {answer}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
