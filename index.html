@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ricohoot</title>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
     <h1>¡Bienvenido a Ricohoot!</h1>
@@ -27,17 +27,18 @@
     </div>
 
     <script>
-        const firebaseConfig = {
+        var firebaseConfig = {
             apiKey: "AIzaSyANMVCGvAc2PLIsLfwFXrn3JdrY4jzYKOw",
             authDomain: "ricohoot-16f32.firebaseapp.com",
+            databaseURL: "https://ricohoot-16f32-default-rtdb.firebaseio.com/",
             projectId: "ricohoot-16f32",
             storageBucket: "ricohoot-16f32.appspot.com",
             messagingSenderId: "1037710167290",
             appId: "1:1037710167290:web:593d30795e54440ec94d43"
         };
         firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        let playerId = null;
+        var db = firebase.database();
+        var playerId = null;
 
         function joinGame() {
             let name = document.getElementById("playerName").value;
@@ -45,7 +46,6 @@
             let playerRef = db.ref("players").push();
             playerId = playerRef.key;
             playerRef.set({ name: name, score: 0 });
-            console.log("Jugador agregado:", name);
             document.getElementById("playerName").value = "";
         }
 
@@ -60,7 +60,6 @@
         });
 
         function startGame() {
-            console.log("Iniciando juego...");
             db.ref("game").set({
                 questionIndex: 0,
                 questions: [
@@ -68,10 +67,9 @@
                     { text: "¿2 + 2?", options: ["3", "4", "5", "6"], correct: 1 }
                 ]
             }).then(() => {
-                console.log("Juego iniciado correctamente");
                 document.getElementById("lobby").style.display = "none";
                 document.getElementById("game").style.display = "block";
-            }).catch(error => console.error("Error iniciando juego:", error));
+            });
         }
 
         db.ref("game").on("value", (snapshot) => {
@@ -79,7 +77,6 @@
             if (!data || !data.questions) return;
             let currentQuestion = data.questions[data.questionIndex];
             if (!currentQuestion) return;
-            console.log("Mostrando pregunta:", currentQuestion.text);
             
             document.getElementById("questionText").innerText = currentQuestion.text;
             let answersDiv = document.getElementById("answers");
@@ -94,17 +91,12 @@
         });
 
         function submitAnswer(choice, questionIndex, totalQuestions) {
-            console.log("Respuesta seleccionada:", choice);
             db.ref("game/questions").once("value").then(snapshot => {
                 let questions = snapshot.val();
                 if (questions[questionIndex].correct === choice) {
-                    console.log("Respuesta correcta!");
                     db.ref(`players/${playerId}/score`).transaction(score => (score || 0) + 10);
-                } else {
-                    console.log("Respuesta incorrecta.");
                 }
                 if (questionIndex + 1 < totalQuestions) {
-                    console.log("Avanzando a la siguiente pregunta...");
                     db.ref("game").update({ questionIndex: questionIndex + 1 });
                 } else {
                     alert("Juego terminado");
