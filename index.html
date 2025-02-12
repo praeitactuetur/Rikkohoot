@@ -3,13 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ricohoot - Kahoot Clone</title>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        #game, #results { display: none; }
-    </style>
+    <title>Ricohoot</title>
+    <script type="module">
+        // Importar Firebase correctamente en modo módulo
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyANMVCGvAc2PLIsLfwFXrn3JdrY4jzYKOw",
+            authDomain: "ricohoot-16f32.firebaseapp.com",
+            databaseURL: "https://ricohoot-16f32-default-rtdb.firebaseio.com/",
+            projectId: "ricohoot-16f32",
+            storageBucket: "ricohoot-16f32.appspot.com",
+            messagingSenderId: "1037710167290",
+            appId: "1:1037710167290:web:593d30795e54440ec94d43"
+        };
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Unirse al juego
+        window.joinGame = function() {
+            let name = document.getElementById("playerName").value;
+            if (name.trim() === "") return;
+
+            let playerRef = push(ref(db, "players"));
+            set(playerRef, { name: name });
+
+            document.getElementById("playerName").value = "";
+        };
+
+        // Actualizar lista de jugadores en el lobby
+        onValue(ref(db, "players"), (snapshot) => {
+            let playersList = document.getElementById("playersList");
+            playersList.innerHTML = "";
+            snapshot.forEach((child) => {
+                let li = document.createElement("li");
+                li.textContent = child.val().name;
+                playersList.appendChild(li);
+            });
+        });
+
+        // Iniciar el juego
+        window.startGame = function() {
+            console.log("Iniciando juego...");
+            set(ref(db, "game/question"), {
+                text: "¿Cuál es la capital de Francia?",
+                options: ["Madrid", "Londres", "París", "Berlín"],
+                correct: 2
+            });
+            document.getElementById("lobby").style.display = "none";
+            document.getElementById("game").style.display = "block";
+        };
+
+        // Cargar la pregunta en la interfaz
+        onValue(ref(db, "game/question"), (snapshot) => {
+            let data = snapshot.val();
+            if (!data) return;
+
+            document.getElementById("questionText").innerText = data.text;
+            let answersDiv = document.getElementById("answers");
+            answersDiv.innerHTML = "";
+
+            data.options.forEach((option, index) => {
+                let button = document.createElement("button");
+                button.innerText = option;
+                button.onclick = () => alert(index === data.correct ? "¡Correcto!" : "Incorrecto");
+                answersDiv.appendChild(button);
+            });
+        });
+    </script>
 </head>
 <body>
     <h1>¡Bienvenido a Ricohoot!</h1>
@@ -23,130 +88,9 @@
         <button onclick="startGame()">Iniciar Juego</button>
     </div>
 
-    <div id="game">
+    <div id="game" style="display:none;">
         <h2 id="questionText">Esperando pregunta...</h2>
         <div id="answers"></div>
-        <p id="timer">Tiempo restante: 10s</p>
     </div>
-
-    <div id="results">
-        <h2>Resultados Finales</h2>
-        <ul id="scoreboard"></ul>
-    </div>
-
-    <script>
-        // Configuración de Firebase
-        const firebaseConfig = {
-            apiKey: "TU_API_KEY",
-            authDomain: "TU_AUTH_DOMAIN",
-            databaseURL: "TU_DATABASE_URL",
-            projectId: "TU_PROJECT_ID",
-            storageBucket: "TU_STORAGE_BUCKET",
-            messagingSenderId: "TU_MESSAGING_SENDER_ID",
-            appId: "TU_APP_ID"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
-        let playerId, timerInterval;
-
-        function joinGame() {
-            let name = document.getElementById("playerName").value.trim();
-            if (!name) return;
-            playerId = db.ref("players").push().key;
-            db.ref("players/" + playerId).set({ name: name, score: 0 });
-            document.getElementById("playerName").value = "";
-        }
-
-        db.ref("players").on("value", (snapshot) => {
-            let playersList = document.getElementById("playersList");
-            playersList.innerHTML = "";
-            snapshot.forEach(child => {
-                let li = document.createElement("li");
-                li.textContent = `${child.val().name} - ${child.val().score} pts`;
-                playersList.appendChild(li);
-            });
-        });
-
-        function startGame() {
-            db.ref("game").set({
-                question: {
-                    text: "¿Cuál es la capital de Francia?",
-                    options: ["Madrid", "Londres", "París", "Berlín"],
-                    correct: 2
-                },
-                timer: 10,
-                gameOver: false
-            });
-            document.getElementById("lobby").style.display = "none";
-            document.getElementById("game").style.display = "block";
-        }
-
-        db.ref("game").on("value", (snapshot) => {
-            let data = snapshot.val();
-            if (!data || data.gameOver) return;
-            
-            document.getElementById("questionText").innerText = data.question.text;
-            let answersDiv = document.getElementById("answers");
-            answersDiv.innerHTML = "";
-
-            data.question.options.forEach((option, index) => {
-                let button = document.createElement("button");
-                button.innerText = option;
-                button.onclick = () => submitAnswer(index === data.question.correct);
-                answersDiv.appendChild(button);
-            });
-
-            startTimer();
-        });
-
-        function startTimer() {
-            let timeLeft = 10;
-            clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    endGame();
-                }
-                document.getElementById("timer").innerText = `Tiempo restante: ${timeLeft}s`;
-                db.ref("game").update({ timer: timeLeft });
-                timeLeft--;
-            }, 1000);
-        }
-
-        function submitAnswer(correct) {
-            if (correct) {
-                db.ref("players/" + playerId).once("value", (snapshot) => {
-                    let currentScore = snapshot.val().score || 0;
-                    db.ref("players/" + playerId).update({ score: currentScore + 10 });
-                });
-            }
-            endGame();
-        }
-
-        function endGame() {
-            db.ref("game").update({ gameOver: true });
-            document.getElementById("game").style.display = "none";
-            document.getElementById("results").style.display = "block";
-            showResults();
-        }
-
-        function showResults() {
-            db.ref("players").once("value", (snapshot) => {
-                let scoreboard = document.getElementById("scoreboard");
-                scoreboard.innerHTML = "";
-                let playersArray = [];
-                snapshot.forEach(child => {
-                    playersArray.push({ name: child.val().name, score: child.val().score });
-                });
-                playersArray.sort((a, b) => b.score - a.score);
-                playersArray.forEach(player => {
-                    let li = document.createElement("li");
-                    li.textContent = `${player.name} - ${player.score} pts`;
-                    scoreboard.appendChild(li);
-                });
-            });
-        }
-    </script>
 </body>
 </html>
