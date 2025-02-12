@@ -1,13 +1,21 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ricohoot</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
 </head>
+<body>
+    <h1>¡Bienvenido a Ricohoot!</h1>
+    <p>Ingresa tu nombre para unirte:</p>
+    <input type="text" id="playerName" placeholder="Tu nombre">
+    <button onclick="joinGame()">Unirse</button>
+
+    <h2>Jugadores en la sala:</h2>
+    <ul id="playersList"></ul>
+
     <script>
     const firebaseConfig = {
        apiKey: "AIzaSyANMVCGvAc2PLIsLfwFXrn3JdrY4jzYKOw",
@@ -19,11 +27,29 @@
 
     };
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-</script>
+        const db = firebase.database();
 
-<body>
-    <h1>¡Bienvenido a Ricohoot!</h1>
-    <p>Esta es la base del proyecto.</p>
+        function joinGame() {
+            let name = document.getElementById("playerName").value;
+            if (name.trim() === "") return;
+
+            let playerRef = db.ref("players").push();
+            playerRef.set({ name: name });
+
+            document.getElementById("playerName").value = "";
+        }
+
+        db.ref("players").on("value", (snapshot) => {
+            let playersList = document.getElementById("playersList");
+            playersList.innerHTML = "";
+            snapshot.forEach((child) => {
+                let li = document.createElement("li");
+                li.textContent = child.val().name;
+                playersList.appendChild(li);
+            });
+        });
+    </script>
+</body>
+</html>
 </body>
 </html>
