@@ -9,24 +9,32 @@
 </head>
 <body>
     <h1>¡Bienvenido a Ricohoot!</h1>
-    <p>Ingresa tu nombre para unirte:</p>
-    <input type="text" id="playerName" placeholder="Tu nombre">
-    <button onclick="joinGame()">Unirse</button>
+    
+    <div id="lobby">
+        <p>Ingresa tu nombre para unirte:</p>
+        <input type="text" id="playerName" placeholder="Tu nombre">
+        <button onclick="joinGame()">Unirse</button>
+        <h2>Jugadores en la sala:</h2>
+        <ul id="playersList"></ul>
+        <button onclick="startGame()">Iniciar Juego</button>
+    </div>
 
-    <h2>Jugadores en la sala:</h2>
-    <ul id="playersList"></ul>
+    <div id="game" style="display:none;">
+        <h2 id="questionText">Esperando pregunta...</h2>
+        <div id="answers"></div>
+    </div>
 
     <script>
-    const firebaseConfig = {
-       apiKey: "AIzaSyANMVCGvAc2PLIsLfwFXrn3JdrY4jzYKOw",
-  authDomain: "ricohoot-16f32.firebaseapp.com",
-  projectId: "ricohoot-16f32",
-  storageBucket: "ricohoot-16f32.firebasestorage.app",
-  messagingSenderId: "1037710167290",
-  appId: "1:1037710167290:web:593d30795e54440ec94d43"
-
-    };
-    firebase.initializeApp(firebaseConfig);
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyANMVCGvAc2PLIsLfwFXrn3JdrY4jzYKOw",
+            authDomain: "ricohoot-16f32.firebaseapp.com",
+            projectId: "ricohoot-16f32",
+            storageBucket: "ricohoot-16f32.firebasestorage.app",
+            messagingSenderId: "1037710167290",
+            appId: "1:1037710167290:web:593d30795e54440ec94d43"
+        };
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
         function joinGame() {
@@ -48,8 +56,33 @@
                 playersList.appendChild(li);
             });
         });
+
+        function startGame() {
+            db.ref("game/question").set({
+                text: "¿Cuál es la capital de Francia?",
+                options: ["Madrid", "Londres", "París", "Berlín"],
+                correct: 2
+            });
+            document.getElementById("lobby").style.display = "none";
+            document.getElementById("game").style.display = "block";
+        }
+
+        db.ref("game/question").on("value", (snapshot) => {
+            let data = snapshot.val();
+            if (!data) return;
+
+            document.getElementById("questionText").innerText = data.text;
+            let answersDiv = document.getElementById("answers");
+            answersDiv.innerHTML = "";
+
+            data.options.forEach((option, index) => {
+                let button = document.createElement("button");
+                button.innerText = option;
+                button.onclick = () => alert(index === data.correct ? "¡Correcto!" : "Incorrecto");
+                answersDiv.appendChild(button);
+            });
+        });
     </script>
 </body>
 </html>
-</body>
-</html>
+
