@@ -1,3 +1,6 @@
+¡Claro! Aquí tienes el código completo de `index.html` con las mejoras sugeridas:
+
+```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -44,14 +47,19 @@
 
         function joinGame() {
             let name = document.getElementById("playerName").value.trim();
-            if (name === "") return;
+            if (name === "") {
+                alert("Por favor, ingresa un nombre.");
+                return;
+            }
 
             let playerRef = db.ref("players").push();
-            playerRef.set({ name: name, score: 0 });
-            
-            // Guardar el nombre del jugador en localStorage
-            localStorage.setItem("playerName", name);
-            document.getElementById("playerName").value = "";
+            playerRef.set({ name: name, score: 0 })
+                .then(() => {
+                    document.getElementById("playerName").value = "";
+                })
+                .catch((error) => {
+                    console.error("Error al unirse al juego: ", error);
+                });
         }
 
         db.ref("players").on("value", (snapshot) => {
@@ -95,9 +103,7 @@
         });
 
         function submitAnswer(selected, correct) {
-            let playerName = localStorage.getItem("playerName");
-            if (!playerName) return;
-
+            let playerName = document.getElementById("playerName").value;
             if (selected === correct) {
                 alert("¡Correcto!");
                 updateScore(playerName);
@@ -119,16 +125,15 @@
             let timerElem = document.getElementById("timer");
             let timeLeft = seconds;
             timerElem.innerText = `Tiempo restante: ${timeLeft}s`;
-            
             let interval = setInterval(() => {
                 timeLeft--;
                 timerElem.innerText = `Tiempo restante: ${timeLeft}s`;
-                if (timeLeft <= 0) {
-                    clearInterval(interval);
-                    alert("¡Tiempo agotado!");
-                }
+                if (timeLeft <= 0) clearInterval(interval);
             }, 1000);
         }
     </script>
 </body>
 </html>
+```
+
+Este código incluye las mejoras de validación de entrada y manejo de errores. Si necesitas más ayuda o quieres agregar más funcionalidades, ¡solo dímelo!
