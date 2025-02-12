@@ -38,6 +38,7 @@
             let playerRef = db.ref("players").push();
             playerId = playerRef.key;
             playerRef.set({ name: name, score: 0 });
+            console.log("Jugador agregado:", name);
             document.getElementById("playerName").value = "";
         }
 
@@ -52,15 +53,18 @@
         });
 
         function startGame() {
+            console.log("Iniciando juego...");
             db.ref("game").set({
                 questionIndex: 0,
                 questions: [
                     { text: "¿Capital de Francia?", options: ["Madrid", "Londres", "París", "Berlín"], correct: 2 },
                     { text: "¿2 + 2?", options: ["3", "4", "5", "6"], correct: 1 }
                 ]
-            });
-            document.getElementById("lobby").style.display = "none";
-            document.getElementById("game").style.display = "block";
+            }).then(() => {
+                console.log("Juego iniciado correctamente");
+                document.getElementById("lobby").style.display = "none";
+                document.getElementById("game").style.display = "block";
+            }).catch(error => console.error("Error iniciando juego:", error));
         }
 
         db.ref("game").on("value", (snapshot) => {
@@ -68,6 +72,7 @@
             if (!data || !data.questions) return;
             let currentQuestion = data.questions[data.questionIndex];
             if (!currentQuestion) return;
+            console.log("Mostrando pregunta:", currentQuestion.text);
             
             document.getElementById("questionText").innerText = currentQuestion.text;
             let answersDiv = document.getElementById("answers");
@@ -82,12 +87,17 @@
         });
 
         function submitAnswer(choice, questionIndex, totalQuestions) {
+            console.log("Respuesta seleccionada:", choice);
             db.ref("game/questions").once("value").then(snapshot => {
                 let questions = snapshot.val();
                 if (questions[questionIndex].correct === choice) {
+                    console.log("Respuesta correcta!");
                     db.ref(`players/${playerId}/score`).transaction(score => (score || 0) + 10);
+                } else {
+                    console.log("Respuesta incorrecta.");
                 }
                 if (questionIndex + 1 < totalQuestions) {
+                    console.log("Avanzando a la siguiente pregunta...");
                     db.ref("game").update({ questionIndex: questionIndex + 1 });
                 } else {
                     alert("Juego terminado");
