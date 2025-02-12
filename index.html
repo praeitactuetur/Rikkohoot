@@ -1,7 +1,7 @@
 // Importaciones necesarias
 import { useState, useEffect } from "react";
 import { db } from "./firebase"; // Asegúrate de tener Firebase configurado
-import { collection, doc, setDoc, getDoc, onSnapshot, updateDoc, query, orderBy } from "firebase/firestore";
+import { collection, doc, setDoc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 
 export default function KahootClone() {
     const [players, setPlayers] = useState([]);
@@ -17,7 +17,7 @@ export default function KahootClone() {
             setPlayers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
         
-        // Cargar preguntas
+        // Cargar preguntas desde Firebase
         const loadQuestions = async () => {
             const docRef = doc(db, "game", "questions");
             const docSnap = await getDoc(docRef);
@@ -43,11 +43,16 @@ export default function KahootClone() {
         if (selectedAnswer) return; // Evitar respuestas múltiples
         setSelectedAnswer(answer);
         
-        const correct = answer === questions[currentQuestionIndex].correct;
+        const correct = answer === questions[currentQuestionIndex]?.correct;
         if (correct) {
-            await updateDoc(doc(db, "players", "playerId"), {
-                score: (players.find(p => p.id === "playerId")?.score || 0) + timer * 10 // Más puntos si responde rápido
-            });
+            const playerRef = doc(db, "players", "playerId");
+            const playerSnap = await getDoc(playerRef);
+            if (playerSnap.exists()) {
+                const currentScore = playerSnap.data().score || 0;
+                await updateDoc(playerRef, {
+                    score: currentScore + timer * 10 // Más puntos si responde rápido
+                });
+            }
         }
     };
 
